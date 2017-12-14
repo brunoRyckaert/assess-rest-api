@@ -1,6 +1,7 @@
 import requests
 import sys
 from data import *
+import traceback
 
 try:
     r = requests.post(data["sts"], None, {
@@ -21,6 +22,10 @@ except KeyError:
         if "password" not in data:
             print("grant_type is \"password\", but password is not set.")
     sys.exit(2)
+except requests.RequestException:
+    print("Could not contact the STS. Check to make sure the STS is correct, and that you have internet access.\n-----\n")
+    traceback.print_exc(file=sys.stdout)
+    sys.exit(3)
 j = json.loads(r.text)
 try:
     access_token = j['access_token']
@@ -30,6 +35,13 @@ except:
     sys.exit(1)
 
 print("Access token:", access_token)
+
+try:
+    requests.get(data["endpoint"])
+except requests.RequestException:
+    print("Could not connect to endpoint. Check to make sure the endpoint is correct, and that you have internet access.\n-----\n")
+    traceback.print_exc(file=sys.stdout)
+    sys.exit(4)
 
 getPublic = requests.get(data["endpoint"] + "/api/public")
 print(getPublic)
