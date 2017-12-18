@@ -9,7 +9,7 @@ Run assess-rest-api.py in command line or run it in an IDE.
 * data.json by default, but can be modified in assess-rest-api.py
 * list of objects containing the following components (in any order)
 ### Components
-* sts (GET endpoint where your Oauth token can be requested)
+* sts (POST endpoint where your Oauth token can be requested)
 * client_id, client_secret, audience, grant_type
 * additionally, if grant_type == "password", the object should also contain username and password
 * endpoint to your API, without /api/public and /api/private
