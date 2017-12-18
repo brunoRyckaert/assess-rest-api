@@ -34,7 +34,7 @@ def assess(data):
             print("audience not set.")
         return
     except requests.RequestException:
-        print("Could not contact the STS. Check to make sure the STS is correct, and that you have internet access.\n-----\n")
+        print("Could not contact the STS. Make sure the STS is correct, and that you have internet access.\n-----\n")
         # traceback.print_exc(file=sys.stdout)
         return
     j = json.loads(r.text)
@@ -63,7 +63,7 @@ def assess(data):
     # print(getPrivateCorrectAuth)
     getPrivateWrongAuth = requests.get(data["endpoint"] + "/api/private", headers={
         "Authorization": "Bearer 1234"})
-    #print(getPrivateWrongAuth.text)
+    # print(getPrivateWrongAuth.text)
 
     postPublic = requests.post(data["endpoint"] + "/api/public")
     # print(postPublic)
@@ -84,21 +84,21 @@ def assess(data):
         rest_api_assess = False
         print("Your private api endpoint is not accessible with proper authentication.")
         print(getPrivateCorrectAuth.status_code,getPrivateCorrectAuth.text)
-    if getPrivateWrongAuth.status_code not in [400,401,500]:
+    if getPrivateWrongAuth.status_code not in [400, 401, 500]:
         rest_api_assess = False
         print("Your private api endpoint is accessible with an incorrect authentication.")
         print(getPrivateWrongAuth.status_code,getPrivateWrongAuth.text)
     if getPrivateWrongAuth.status_code != 401:
         fout_code_assess = False
         print("Private API Wrong Auth: The error code should be 401, not",getPrivateWrongAuth.status_code)
-    if getPrivateNoAuth.status_code not in [401,500]:
+    if getPrivateNoAuth.status_code not in [401, 500]:
         rest_api_assess = False
         print("Your private api endpoint is accessible without authentication.")
         print(getPrivateNoAuth.status_code,getPrivateNoAuth.text)
     if getPrivateNoAuth.status_code != 401:
         fout_code_assess = False
         print("Private API No Auth: The error code should be 401, not",getPrivateNoAuth.status_code)
-    if postPublic.status_code not in [403, 405,500]:
+    if postPublic.status_code not in [403, 405, 500]:
         rest_api_assess = False
         print("Your public api endpoint is accessible with the POST method, but shouldn't.")
         print(postPublic.status_code,postPublic.text)
