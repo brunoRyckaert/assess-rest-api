@@ -4,7 +4,7 @@ This project is part of a school project for Erasmus University College Brussels
 * Python 3
 * requests (pip install requests)
 ## Running
-Run it in command line or run it in an IDE.
+Run assess-rest-api.py in command line or run it in an IDE.
 ## Data file
 * data.json by default, but can be modified in assess-rest-api.py
 * list of objects containing the following components
