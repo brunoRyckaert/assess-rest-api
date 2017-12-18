@@ -1,5 +1,17 @@
 # Assess-rest-api
 This project is part of a school project for Erasmus University College Brussels as part of the Software Security course.
+## Assessment criteria
+### Rest-api
+* Public api endpoint available without any auth
+* Private api endpoint available with correct auth
+* Private api endpoint unavailable with wrong auth
+* Private api endpoint unavailable with no auth
+* Public api endpoint not available through POST method
+* Private api endpoint not available through POST method
+### Foutcodes
+* Access to resources other than /api/public and /api/private should return 404
+* Unauthorized access to private resources should return 401
+* Post request to public endpoint should return 405
 ## Requirements
 * Python 3
 * requests (pip install requests)
