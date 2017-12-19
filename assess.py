@@ -37,8 +37,9 @@ def assess(data):
         print("Could not contact the STS. Make sure the STS is correct, and that you have internet access.\n-----\n")
         # traceback.print_exc(file=sys.stdout)
         return
-    j = json.loads(r.text)
+
     try:
+        j = json.loads(r.text)
         access_token = j['access_token']
     except:
         print("Error retrieving access code:")

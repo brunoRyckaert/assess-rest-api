@@ -1,4 +1,6 @@
 from assess import *
+import traceback
+import sys
 
 # The data should be a JSON list of objects containing following elements:
 # sts, client_id, client_secret, audience, grant_type
@@ -11,3 +13,4 @@ try:
         assess(data)
 except json.decoder.JSONDecodeError:
     print("Error: The json file containing the data is malformed.")
+    traceback.print_exc(file=sys.stdout)
