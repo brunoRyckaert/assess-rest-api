@@ -72,7 +72,6 @@ def assess(data):
     # print(postPrivate)
 
     getRandom = requests.get(data["endpoint"]+"/api/"+''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10)))
-    print("Random path:",getRandom.request.url)
 
     rest_api_assess = True
     fout_code_assess = True
@@ -116,6 +115,7 @@ def assess(data):
     if getRandom.status_code != 404:
         fout_code_assess = False
         print("Get random path: The error code should be 404, not",getRandom.status_code)
+        print("Random path:", getRandom.request.url)
 
     print("Rest api assessment:", "pass" if rest_api_assess else "fail")
     print("Foutcodes api assessment:", "pass" if fout_code_assess else "fail")
