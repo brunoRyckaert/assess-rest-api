@@ -1,5 +1,27 @@
 # Assess-rest-api
 This project is part of a school project for Erasmus University College Brussels as part of the Software Security course.
+
+## Prerequisites
+
+* Python3
+* In  `~/.bash_profile` or equivalent
+```
+   export LC_ALL=en_US.UTF-8
+   export LANG=en_US.UTF-8
+```
+* pipenv
+
+## Installation
+
+```
+> git clone git@github.com:brunoRyckaert/assess-rest-api.git
+...
+> pipenv --three install
+...
+> pipenv shell
+...
+```
+
 ## Assessment criteria
 ### Rest-api
 * Public api endpoint available without any auth
