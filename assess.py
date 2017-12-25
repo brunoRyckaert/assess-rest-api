@@ -7,7 +7,7 @@ import string
 def assess(data):
     print("Processing", data)
     try:
-        r = requests.post(data["sts"], None, {
+        r = requests.post(data["sts"], {
             "client_id": data["client_id"],
             "client_secret": data["client_secret"],
             "audience": data["audience"],
