@@ -1,5 +1,5 @@
 # Assess-rest-api
-This project is part of a school project for Erasmus University College Brussels as part of the Software Security course.
+This project contains a tool to assess an assignment for the Erasmus University College Brussels Software Security course.
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ This project is part of a school project for Erasmus University College Brussels
 * Private api endpoint unavailable with no auth
 * Public api endpoint not available through POST method
 * Private api endpoint not available through POST method
-### Foutcodes
+### Error codes
 * Access to resources other than /api/public and /api/private should return 404
 * Unauthorized access to private resources should return 401
 * Post request to public endpoint should return 405
@@ -43,7 +43,7 @@ Run assess-rest-api.py in command line or run it in an IDE.
 * data.json by default, but can be modified in assess-rest-api.py
 * list of objects containing the following components (in any order)
 ### Components
-* sts (POST endpoint where your Oauth token can be requested)
+* sts (POST endpoint where your OAuth token can be requested)
 * client_id, client_secret, audience, grant_type
 * additionally, if grant_type == "password", the object should also contain username and password
 * endpoint to your API, without /api/public and /api/private
