@@ -7,47 +7,56 @@ The preferred way of running this test utility is in a Docker container. It can 
 
 In either case, you need a file called `data.json` in a well-known location. If you are running Python on your host, this location is `/tmp`. If you are running a Docker image, you can place the file anywhere on your host and mount its directory on the container's `/tmp` directory, see below. For `data.json`'s format, see also below.
 
-## Installation
+## Installation and usage
 
 ```
-docker run --rm --name ara -v <absolute path data.json parent dir>:/tmp yopeeters/assess-rest-api 
+docker run --rm --name ara -v <absolute path to data.json's parent dir>:/tmp yopeeters/assess-rest-api
 ```
 
 ## Assessment criteria
-### Rest-api
-* Public api endpoint available without any auth
-* Private api endpoint available with correct auth
-* Private api endpoint unavailable with wrong auth
-* Private api endpoint unavailable with no auth
-* Public api endpoint not available through POST method
-* Private api endpoint not available through POST method
-### Error codes
-* Access to resources other than /api/public and /api/private should return 404
-* Unauthorized access to private resources should return 401
-* Post request to public endpoint should return 405
-## Requirements
-* Python 3
-* requests (pip install requests)
-## Running
-Run assess-rest-api.py in command line or run it in an IDE.
+
+* The API is 'protected' with an API key
+* The API has a public endpoint that does not require further authentication
+* A protected endpoint requires authentication with a valid access token
+* Only GET, HEAD and OPTIONS requests are allowed
+
+|Condition                     |Expected status code|
+|------------------------------|--------------------|
+|Invocation successful         |200                 |
+|Missing API key               |403 or 404          |
+|Missing or invalid access token|401, 403 or 404    |
+|Forbidden method              | 403, 404 or 405    |
+
 ## Data file
-* data.json by default, but can be modified in assess-rest-api.py
-* list of objects containing the following components (in any order)
-### Components
-* sts (POST endpoint where your OAuth token can be requested)
-* client_id, client_secret, audience, grant_type
-* additionally, if grant_type == "password", the object should also contain username and password
-* endpoint to your API, without /api/public and /api/private
+
+`data.json` contains a JSON array which contain elements with the following fields:
+
+|Field           |Description               |
+|----------------|--------------------------|
+|`owner`           |EhB email address of the student whose API is being assessed|
+|`api`             |The base URL of the API. If you are using AWS API Gateway, this would be the URL of the stage.|
+|`api_key`         |The API key. This test suite puts the API key in the `x-api-key` header. Let me know if you have a good reason to present the API key differently.|
+|`public`          |The public endpoint. This value will be appended to the value of the `api` field.|
+|`protected`       |The endpoint that requires authentication. This value will also be appended to the value of the `api` field.|
+|`iss`             |The issuer URL. This is the same URL as in tokens issued by the issuer. It is not necessarily a prefix of the authorization server's token or authorization endpoint.|
+|`client_id`       |The ID for the test client registered with the authorization server.|
+|`client_secret`   |The secret issued for the test client by the authorization server.|
+
+All fields are mandatory.
+
+
 ### Example
 ```
 [
-    {
-        "sts": "https://ryckaert.eu.auth0.com/oauth/token",
-        "client_id": "I8lfgv91Hj7cTHplw...",
-        "client_secret": "aM2TWKD4ajZEKci3r...",
-        "audience": "https://your-api-gateway",
-        "grant_type": "client_credentials",
-        "endpoint": "https://tstu2yjkke.execute-api.eu-central-1.amazonaws.com/SoftSec"
-      }
-  ]
+  {
+    "owner": "johan.peeters@ehb.be",
+    "api": "https://<AWS API identifier>.execute-api.eu-west-1.amazonaws.com/<stage>",
+    "api_key": "<secret key>",
+    "public": "<public resource name>",
+    "protected": "<protected resource name>",
+    "iss": "https://cognito-idp.eu-west-1.amazonaws.com/<Pool Id>",
+    "client_id": "<App client id>",
+    "client_secret": "<App client secret>"
+  }
+]
  ```
