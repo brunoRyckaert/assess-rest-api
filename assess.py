@@ -2,121 +2,141 @@ import requests
 import json
 import random
 import string
+import itertools
 
+class TestResult:
+    def __init__(self, msg):
+        self.message = msg
 
-def assess(data):
-    print("Processing", data)
-    try:
-        r = requests.post(data["sts"], {
-            "client_id": data["client_id"],
-            "client_secret": data["client_secret"],
-            "audience": data["audience"],
-            "grant_type": data["grant_type"],
-            "username": data["username"] if "grant_type" in data and data["grant_type"] == "password" else "",
-            "password": data["password"] if "grant_type" in data and data["grant_type"] == "password" else ""
-        })
-    except KeyError:
-        print("Invalid data. See details below:")
-        if "grant_type" not in data:
-            print("grant_type not set.")
-        if "grant_type" in data and data["grant_type"] == "password":
-            if "username" not in data:
-                print("grant_type is \"password\", but username is not set.")
-            if "password" not in data:
-                print("grant_type is \"password\", but password is not set.")
-        if "sts" not in data:
-            print("sts not set.")
-        if "client_id" not in data:
-            print("client_id not set.")
-        if "client_secret" not in data:
-            print("client_secret not set.")
-        if "audience" not in data:
-            print("audience not set.")
-        return
-    except requests.RequestException:
-        print("Could not contact the STS. Make sure the STS is correct, and that you have internet access.\n-----\n")
-        # traceback.print_exc(file=sys.stdout)
-        return
+class TestFailure(TestResult): pass
 
-    try:
-        j = json.loads(r.text)
-        access_token = j['access_token']
-    except:
-        print("Error retrieving access code:")
-        print(r.text)
-        return
+class TestSuccess(TestResult): pass
 
-    print("Access token:", access_token)
+class TestRun:
 
-    try:
-        requests.get(data["endpoint"] + "/api/public")
-    except requests.RequestException:
-        print("Could not connect to endpoint. Check to make sure the endpoint is correct, and that you have internet access.\n-----\n")
-        # traceback.print_exc(file=sys.stdout)
-        return
+    keys = [
+        'owner',
+        'api_key',
+        'api',
+        'public',
+        'protected',
+        'iss',
+        'client_secret',
+        'client_id'
+        ]
 
-    getPublic = requests.get(data["endpoint"] + "/api/public")
-    # print(getPublic)
-    getPrivateNoAuth = requests.get(data["endpoint"] + "/api/private")
-    # print(getPrivateNoAuth)
-    getPrivateCorrectAuth = requests.get(data["endpoint"] + "/api/private",
-                                         headers={"Authorization": "Bearer " + access_token})
-    # print(getPrivateCorrectAuth)
-    getPrivateWrongAuth = requests.get(data["endpoint"] + "/api/private", headers={
-        "Authorization": "Bearer 1234"})
-    # print(getPrivateWrongAuth.text)
+    def __init__(self, data):
+        print("Processing", data['api'])
+        self.data = data
 
-    postPublic = requests.post(data["endpoint"] + "/api/public")
-    # print(postPublic)
-    postPrivate = requests.post(data["endpoint"] + "/api/private")
-    # print(postPrivate)
+    def __valid(self):
+        result = True
+        missing_keys = itertools.filterfalse(lambda k: k in self.data, self.keys)
+        for key in missing_keys:
+            print(f'{key} is not set in data file.')
+            result = False
+        return result
 
-    getRandom = requests.get(data["endpoint"]+"/api/"+''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10)))
+    def __testStatusCode(self, actual, acceptable, testDesc):
+        if isinstance(acceptable, list) and actual not in acceptable:
+            return TestFailure(f'{testDesc} returns status code {actual}. Expected is one of {acceptable}.')
+        if isinstance(acceptable, int) and actual != acceptable:
+            return TestFailure(f'{testDesc} returns status code {actual}. Expected is {acceptable}.')
+        return TestSuccess(f'{testDesc} returns status code {actual}.')
 
-    rest_api_assess = True
-    fout_code_assess = True
+    def __publicResource(self):
+        return f'{self.data["api"]}/{self.data["public"]}'
 
-    if getPublic.status_code != 200:
-        rest_api_assess = False
-        print("Your public api endpoint is not available or accessible without authentication.")
-        print(getPublic.status_code,getPublic.text)
-    if getPrivateCorrectAuth.status_code != 200:
-        rest_api_assess = False
-        print("Your private api endpoint is not accessible with proper authentication.")
-        print(getPrivateCorrectAuth.status_code,getPrivateCorrectAuth.text)
-    if getPrivateWrongAuth.status_code not in [400, 401, 500]:
-        rest_api_assess = False
-        print("Your private api endpoint is accessible with an incorrect authentication.")
-        print(getPrivateWrongAuth.status_code,getPrivateWrongAuth.text)
-    if getPrivateWrongAuth.status_code != 401:
-        fout_code_assess = False
-        print("Private API Wrong Auth: The error code should be 401, not",getPrivateWrongAuth.status_code)
-    if getPrivateNoAuth.status_code not in [401, 500]:
-        rest_api_assess = False
-        print("Your private api endpoint is accessible without authentication.")
-        print(getPrivateNoAuth.status_code,getPrivateNoAuth.text)
-    if getPrivateNoAuth.status_code != 401:
-        fout_code_assess = False
-        print("Private API No Auth: The error code should be 401, not",getPrivateNoAuth.status_code)
-    if postPublic.status_code not in [403, 405, 500]:
-        rest_api_assess = False
-        print("Your public api endpoint is accessible with the POST method, but shouldn't.")
-        print(postPublic.status_code,postPublic.text)
-    if postPublic.status_code != 405:
-        fout_code_assess = False
-        print("The error code should be 405, not",postPublic.status_code)
-    if postPrivate.status_code not in [403, 405, 500]:
-        rest_api_assess = False
-        print("Your private api endpoint is accessible with the POST method, but shouldn't.")
-        print(postPrivate.status_code,postPublic.text)
-    if postPrivate.status_code != 405:
-        fout_code_assess = False
-        print("Private API post: The error code should be 405, not",postPrivate.status_code)
-    if getRandom.status_code != 404:
-        fout_code_assess = False
-        print("Get random path: The error code should be 404, not",getRandom.status_code)
-        print("Random path:", getRandom.request.url)
+    def __testPublic(self):
+        resource = self.__publicResource()
+        response = requests.get(resource, headers={'x-api-key': self.data['api_key']})
+        return self.__testStatusCode(response.status_code, 200, f'Public resource {self.data["public"]}')
 
-    print("Rest api assessment:", "pass" if rest_api_assess else "fail")
-    print("Foutcodes api assessment:", "pass" if fout_code_assess else "fail")
-    print("-------------")
+    def __testProtected(self):
+        result = []
+        resource = f'{self.data["api"]}/{self.data["protected"]}'
+        response = requests.get(resource, headers={
+                'x-api-key': self.data['api_key'],
+                'Authorization': f'Bearer {self.access_token}'
+            }
+        )
+        result.append(self.__testStatusCode(response.status_code, 200, f'Protected resource {self.data["protected"]}'))
+        response = requests.get(resource, headers={
+                'x-api-key': self.data['api_key']
+            }
+        )
+        result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'Without Authorization header {self.data["protected"]}'))
+        # tamper with integrity access token
+        accessToken = self.access_token[0:-1]
+        response = requests.get(resource, headers={
+                        'x-api-key': self.data['api_key'],
+                        'Authorization': f'Bearer {accessToken}'
+                    }
+                )
+        result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'With corrupt access token {self.data["protected"]}'))
+        return result
+
+    def __testNoApiKey(self):
+        # we assume that, if the public resource is protected with an API key,
+        # so are the others. For a production API, this is not a reasonable assumption.
+        # In the context of testing whether students understand how to use API keys,
+        # the assumption is OK.
+        resource = self.__publicResource()
+        response = requests.get(self.__publicResource())
+        return self.__testStatusCode(response.status_code, [403, 404], f'Without API key {self.data["public"]}')
+
+    def __testMethodRejected(self, method):
+        resource = self.__publicResource()
+        key = self.data['api_key']
+        response = method['function'](resource, key)
+        return self.__testStatusCode(response.status_code, [403, 404, 405], f'Using unsupported method, {method["verb"]}')
+
+    def __metadata(self, url):
+        return json.loads(requests.get(f'{url}/.well-known/openid-configuration').text)
+
+    def assess(self):
+        if self.__valid():
+            forbidden_methods = [
+                {'verb': 'PUT', 'function': lambda url, key: requests.put(url, headers={'x-api-key': key})},
+                {'verb': 'DELETE', 'function': lambda url, key: requests.delete(url, headers={'x-api-key': key})},
+                {'verb': 'PATCH', 'function': lambda url, key: requests.patch(url, headers={'x-api-key': key})},
+                {'verb': 'POST', 'function': lambda url, key: requests.post(url, headers={'x-api-key': key})}
+            ]
+            rest_api_assess = [
+                self.__testPublic(),
+                self.__testNoApiKey()
+            ] + [self.__testMethodRejected(method) for method in forbidden_methods]
+            try:
+                self.openidConfiguration = self.__metadata(self.data['iss'])
+            except requests.exceptions.ConnectionError:
+                rest_api_assess.append(TestFailure(f'cannot connect to issuer at {self.data["iss"]}'))
+            try:
+                self.token_endpoint = self.openidConfiguration["token_endpoint"]
+            except KeyError:
+                rest_api_assess.append(TestFailure(f'no metadata found at issuer ({self.data["iss"]})'))
+            try:
+                self.accessTokenResponse = json.loads(requests.post(
+                    self.token_endpoint,
+                    {
+                        "client_id": self.data["client_id"],
+                        "client_secret": self.data["client_secret"],
+                        "grant_type": 'client_credentials'
+                    }
+                ).text)
+                self.access_token = self.accessTokenResponse['access_token']
+            except KeyError:
+                rest_api_assess.append(TestFailure(f'cannot retrieve access token: {self.accessTokenResponse["error"]}'))
+            except:
+                print('unexpected error. Please send author your command line and data.json.')
+                return
+
+            rest_api_assess = rest_api_assess + self.__testProtected()
+
+            failures = itertools.filterfalse(lambda result: isinstance(result, TestSuccess), rest_api_assess)
+            success = True
+            for result in failures:
+                print(f'fail: {result.message}')
+                success = False
+            print("pass" if success else "fail")
+        else:
+            print("fail")
