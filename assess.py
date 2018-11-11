@@ -26,7 +26,7 @@ class TestRun:
         ]
 
     def __init__(self, data):
-        print("Processing", data['api'])
+        print(f'Processing {data["owner"]}\'s API')
         self.data = data
 
     def __valid(self):

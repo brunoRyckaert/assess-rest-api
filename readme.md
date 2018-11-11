@@ -3,23 +3,14 @@ This project contains a tool to assess an assignment for the Erasmus University 
 
 ## Prerequisites
 
-* Python3
-* In  `~/.bash_profile` or equivalent
-```
-   export LC_ALL=en_US.UTF-8
-   export LANG=en_US.UTF-8
-```
-* pipenv
+The preferred way of running this test utility is in a Docker container. It can also be run as a Python3 script, but this is not recommended.
+
+In either case, you need a file called `data.json` in a well-known location. If you are running Python on your host, this location is `/tmp`. If you are running a Docker image, you can place the file anywhere on your host and mount its directory on the container's `/tmp` directory, see below. For `data.json`'s format, see also below.
 
 ## Installation
 
 ```
-> git clone git@github.com:brunoRyckaert/assess-rest-api.git
-...
-> pipenv --three install
-...
-> pipenv shell
-...
+docker run --rm --name ara -v <absolute path data.json parent dir>:/tmp yopeeters/assess-rest-api 
 ```
 
 ## Assessment criteria

@@ -13,4 +13,4 @@ RUN pipenv check
 
 RUN pipenv install
 
-CMD ["pipenv", "shell"]
+CMD ["pipenv", "run", "python", "assess-rest-api.py"]
