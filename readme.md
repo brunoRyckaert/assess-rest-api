@@ -3,15 +3,31 @@ This project contains a tool to assess an assignment for the Erasmus University 
 
 ## Prerequisites
 
-The preferred way of running this test utility is in a Docker container. It can also be run as a Python3 script, but this is not recommended.
+The preferred way of running this test utility is in a Docker container. The only prerequisite in this case is Docker.
+
+The test utility can also be run as a Python3 script, but this is not recommended. Obviously Python3 is needed in this case, as well as pip and [pipenv](https://pipenv.readthedocs.io/en/latest/).
 
 In either case, you need a file called `data.json` in a well-known location. If you are running Python on your host, this location is `/tmp`. If you are running a Docker image, you can place the file anywhere on your host and mount its directory on the container's `/tmp` directory, see below. For `data.json`'s format, see also below.
 
 ## Installation and usage
 
+### Docker (recommended)
+
 ```
 docker run --rm --name ara -v <absolute path to data.json's parent dir>:/tmp yopeeters/assess-rest-api
 ```
+
+### Python (not recommended and not tested)
+
+```
+git clone https://github.com/JohanPeeters/assess-rest-api
+cd assess-rest-api
+pipenv check
+pipenv install
+pipenv run python assess-rest-api.py
+```
+
+On subsequent use, the last command should suffice.
 
 ## Assessment criteria
 
