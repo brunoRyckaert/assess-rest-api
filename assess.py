@@ -1,8 +1,8 @@
 import requests
 import json
-import random
-import string
 import itertools
+import sys
+import traceback
 
 class TestResult:
     def __init__(self, msg):
@@ -52,12 +52,12 @@ class TestRun:
         response = requests.get(resource, headers={'x-api-key': self.data['api_key']})
         return self.__testStatusCode(response.status_code, 200, f'Public resource {self.data["public"]}')
 
-    def __testProtected(self):
+    def __testProtected(self, access_token):
         result = []
         resource = f'{self.data["api"]}/{self.data["protected"]}'
         response = requests.get(resource, headers={
                 'x-api-key': self.data['api_key'],
-                'Authorization': f'Bearer {self.access_token}'
+                'Authorization': f'Bearer {access_token}'
             }
         )
         result.append(self.__testStatusCode(response.status_code, 200, f'Protected resource {self.data["protected"]}'))
@@ -67,7 +67,7 @@ class TestRun:
         )
         result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'Without Authorization header {self.data["protected"]}'))
         # tamper with integrity access token
-        accessToken = self.access_token[0:-1]
+        accessToken = access_token[0:-1]
         response = requests.get(resource, headers={
                         'x-api-key': self.data['api_key'],
                         'Authorization': f'Bearer {accessToken}'
@@ -94,6 +94,33 @@ class TestRun:
     def __metadata(self, url):
         return json.loads(requests.get(f'{url}/.well-known/openid-configuration').text)
 
+    def __getAccessToken(self):
+        try:
+            self.openidConfiguration = self.__metadata(self.data['iss'])
+            self.token_endpoint = self.openidConfiguration["token_endpoint"]
+        except requests.exceptions.ConnectionError:
+            self.rest_api_assess.append(TestFailure(f'cannot connect to issuer at {self.data["iss"]}'))
+            raise
+        except KeyError:
+            self.rest_api_assess.append(TestFailure(f'no metadata found at issuer ({self.data["iss"]})'))
+            raise
+        try:
+            self.accessTokenResponse = json.loads(requests.post(
+                self.token_endpoint,
+                {
+                    "client_id": self.data["client_id"],
+                    "client_secret": self.data["client_secret"],
+                    "grant_type": 'client_credentials'
+                }
+            ).text)
+            return self.accessTokenResponse['access_token']
+        except KeyError:
+            self.rest_api_assess.append(TestFailure(f'cannot retrieve access token: {self.accessTokenResponse["error"]}'))
+            raise
+        except:
+            print(f'unexpected error: {sys.exc_info()[0]}. Please send author your command line and data.json.')
+            raise
+
     def assess(self):
         if self.__valid():
             forbidden_methods = [
@@ -102,37 +129,19 @@ class TestRun:
                 {'verb': 'PATCH', 'function': lambda url, key: requests.patch(url, headers={'x-api-key': key})},
                 {'verb': 'POST', 'function': lambda url, key: requests.post(url, headers={'x-api-key': key})}
             ]
-            rest_api_assess = [
+            self.rest_api_assess = [
                 self.__testPublic(),
                 self.__testNoApiKey()
             ] + [self.__testMethodRejected(method) for method in forbidden_methods]
+
             try:
-                self.openidConfiguration = self.__metadata(self.data['iss'])
-            except requests.exceptions.ConnectionError:
-                rest_api_assess.append(TestFailure(f'cannot connect to issuer at {self.data["iss"]}'))
-            try:
-                self.token_endpoint = self.openidConfiguration["token_endpoint"]
-            except KeyError:
-                rest_api_assess.append(TestFailure(f'no metadata found at issuer ({self.data["iss"]})'))
-            try:
-                self.accessTokenResponse = json.loads(requests.post(
-                    self.token_endpoint,
-                    {
-                        "client_id": self.data["client_id"],
-                        "client_secret": self.data["client_secret"],
-                        "grant_type": 'client_credentials'
-                    }
-                ).text)
-                self.access_token = self.accessTokenResponse['access_token']
-            except KeyError:
-                rest_api_assess.append(TestFailure(f'cannot retrieve access token: {self.accessTokenResponse["error"]}'))
+                self.rest_api_assess = self.rest_api_assess + self.__testProtected(self.__getAccessToken())
             except:
-                print('unexpected error. Please send author your command line and data.json.')
-                return
+                #print(f'cannot get access token - {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}')
+                #traceback.print_tb(sys.exc_info()[2])
+                pass
 
-            rest_api_assess = rest_api_assess + self.__testProtected()
-
-            failures = itertools.filterfalse(lambda result: isinstance(result, TestSuccess), rest_api_assess)
+            failures = itertools.filterfalse(lambda result: isinstance(result, TestSuccess), self.rest_api_assess)
             success = True
             for result in failures:
                 print(f'fail: {result.message}')
