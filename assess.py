@@ -45,18 +45,16 @@ class TestRun:
             return TestFailure(f'{testDesc} returns status code {actual}. Expected is {acceptable}.')
         return TestSuccess(f'{testDesc} returns status code {actual}.')
 
-    def __testPublic(self, resource):
-        response = requests.get(resource, headers={'x-api-key': self.data['api_key']})
-        return self.__testStatusCode(response.status_code, 200, f'Public resource {self.data["public"]}')
+    def __testResource(self, resource):
+        headers = {'x-api-key': self.data['api_key']}
+        if len(self.access_token) > 0:
+            headers['Authorization'] = f'Bearer {self.access_token}'
+        response = requests.get(resource, headers=headers)
+        return self.__testStatusCode(response.status_code, 200, f'{resource.split("/")[-1]}')
 
     def __testProtected(self, resource):
         result = []
-        response = requests.get(resource, headers={
-                'x-api-key': self.data['api_key'],
-                'Authorization': f'Bearer {self.access_token}'
-            }
-        )
-        result.append(self.__testStatusCode(response.status_code, 200, f'Protected resource {self.data["protected"]}'))
+        result.append(self.__testResource(resource))
         response = requests.get(resource, headers={
                 'x-api-key': self.data['api_key']
             }
@@ -74,9 +72,9 @@ class TestRun:
     def __testNoApiKey(self, resource):
         headers = {}
         if len(self.access_token) > 0:
-            headers['Authorization'] = f'Bearer self.access_token'
+            headers['Authorization'] = f'Bearer {self.access_token}'
         response = requests.get(resource, headers=headers)
-        return self.__testStatusCode(response.status_code, [403, 404], f'Without API key {self.data["public"]}')
+        return self.__testStatusCode(response.status_code, [403, 404], f'Without API key {resource.split("/")[-1]}')
 
     def __testMethodRejected(self, resource, method):
         headers = {'x-api-key': self.data['api_key']}
@@ -128,7 +126,7 @@ class TestRun:
             ]
             # test public resource
             self.rest_api_assess = [
-                self.__testPublic(public_resource),
+                self.__testResource(public_resource),
                 self.__testNoApiKey(public_resource)
             ] + [self.__testMethodRejected(public_resource, method) for method in forbidden_methods]
             # test protected resource
