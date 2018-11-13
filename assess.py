@@ -87,6 +87,16 @@ class TestRun:
         return json.loads(requests.get(f'{url}/.well-known/openid-configuration').text)
 
     def __getAccessToken(self):
+        params = {
+            "client_id": self.data["client_id"],
+            "client_secret": self.data["client_secret"],
+            "grant_type": 'client_credentials'
+        }
+        # audience is ignored by Cognito, but is required by Auth0
+        if 'audience' in self.data:
+            params['audience'] = self.data['audience']
+        else:
+            params['audience'] = f'{self.data["api"]}/{self.data["protected"]}'
         try:
             self.openidConfiguration = self.__metadata(self.data['iss'])
             self.token_endpoint = self.openidConfiguration["token_endpoint"]
@@ -99,11 +109,7 @@ class TestRun:
         try:
             self.accessTokenResponse = json.loads(requests.post(
                 self.token_endpoint,
-                {
-                    "client_id": self.data["client_id"],
-                    "client_secret": self.data["client_secret"],
-                    "grant_type": 'client_credentials'
-                }
+                params
             ).text)
             self.access_token = self.accessTokenResponse['access_token']
             return

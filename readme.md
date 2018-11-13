@@ -47,19 +47,17 @@ On subsequent use, the last command should suffice.
 
 `data.json` contains a JSON array which contain elements with the following fields:
 
-|Field           |Description               |
-|----------------|--------------------------|
-|`owner`           |EhB email address of the student whose API is being assessed|
-|`api`             |The base URL of the API. If you are using AWS API Gateway, this would be the URL of the stage.|
-|`api_key`         |The API key. This test suite puts the API key in the `x-api-key` header. Let me know if you have a good reason to present the API key differently.|
-|`public`          |The public endpoint. This value will be appended to the value of the `api` field.|
-|`protected`       |The endpoint that requires authentication. This value will also be appended to the value of the `api` field.|
-|`iss`             |The issuer URL. This is the same URL as in tokens issued by the issuer. It is not necessarily a prefix of the authorization server's token or authorization endpoint.|
-|`client_id`       |The ID for the test client registered with the authorization server.|
-|`client_secret`   |The secret issued for the test client by the authorization server.|
-
-All fields are mandatory.
-
+|Field           |Description               | |
+|----------------|--------------------------|-|
+|`owner`           |EhB email address of the student whose API is being assessed|mandatory|
+|`api`             |The base URL of the API. If you are using AWS API Gateway, this would be the URL of the stage.|mandatory|
+|`api_key`         |The API key. This test suite puts the API key in the `x-api-key` header. Let me know if you have a good reason to present the API key differently.|mandatory|
+|`public`          |The public endpoint. In the full URL, this value trails the value of the `api` field.|mandatory|
+|`protected`       |The endpoint that requires authentication. In the full URL, this value also trails the value of the `api` field.|mandatory|
+|`iss`             |The issuer URL. This is the same URL as in tokens issued by the issuer. It is not necessarily a prefix of the authorization server's token or authorization endpoint.|mandatory|
+|`client_id`       |The ID for the test client registered with the authorization server.|mandatory|
+|`client_secret`   |The secret issued for the test client by the authorization server.|mandatory|
+|`audience`        |The identifier of the API which will be invoked with the token. Not needed for Cognito, required by Auth0. If this field is absent, the token request is sent with an `audience` parameter consisting of the full endpoint URL.|optional|
 
 ### Example
 ```
