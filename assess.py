@@ -28,6 +28,7 @@ class TestRun:
     def __init__(self, data):
         print(f'Processing {data["owner"]}\'s API')
         self.data = data
+        self.access_token = ''
 
     def __valid(self):
         result = True
@@ -44,20 +45,15 @@ class TestRun:
             return TestFailure(f'{testDesc} returns status code {actual}. Expected is {acceptable}.')
         return TestSuccess(f'{testDesc} returns status code {actual}.')
 
-    def __publicResource(self):
-        return f'{self.data["api"]}/{self.data["public"]}'
-
-    def __testPublic(self):
-        resource = self.__publicResource()
+    def __testPublic(self, resource):
         response = requests.get(resource, headers={'x-api-key': self.data['api_key']})
         return self.__testStatusCode(response.status_code, 200, f'Public resource {self.data["public"]}')
 
-    def __testProtected(self, access_token):
+    def __testProtected(self, resource):
         result = []
-        resource = f'{self.data["api"]}/{self.data["protected"]}'
         response = requests.get(resource, headers={
                 'x-api-key': self.data['api_key'],
-                'Authorization': f'Bearer {access_token}'
+                'Authorization': f'Bearer {self.access_token}'
             }
         )
         result.append(self.__testStatusCode(response.status_code, 200, f'Protected resource {self.data["protected"]}'))
@@ -67,28 +63,26 @@ class TestRun:
         )
         result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'Without Authorization header {self.data["protected"]}'))
         # tamper with integrity access token
-        accessToken = access_token[0:-1]
         response = requests.get(resource, headers={
                         'x-api-key': self.data['api_key'],
-                        'Authorization': f'Bearer {accessToken}'
+                        'Authorization': f'Bearer {self.access_token[0:-1]}'
                     }
                 )
         result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'With corrupt access token {self.data["protected"]}'))
         return result
 
-    def __testNoApiKey(self):
-        # we assume that, if the public resource is protected with an API key,
-        # so are the others. For a production API, this is not a reasonable assumption.
-        # In the context of testing whether students understand how to use API keys,
-        # the assumption is OK.
-        resource = self.__publicResource()
-        response = requests.get(self.__publicResource())
+    def __testNoApiKey(self, resource):
+        headers = {}
+        if len(self.access_token) > 0:
+            headers['Authorization'] = f'Bearer self.access_token'
+        response = requests.get(resource, headers=headers)
         return self.__testStatusCode(response.status_code, [403, 404], f'Without API key {self.data["public"]}')
 
-    def __testMethodRejected(self, method):
-        resource = self.__publicResource()
-        key = self.data['api_key']
-        response = method['function'](resource, key)
+    def __testMethodRejected(self, resource, method):
+        headers = {'x-api-key': self.data['api_key']}
+        if len(self.access_token) > 0:
+            headers['Authorization'] = f'Bearer self.access_token'
+        response = method['function'](resource, headers)
         return self.__testStatusCode(response.status_code, [403, 404, 405], f'Using unsupported method, {method["verb"]}')
 
     def __metadata(self, url):
@@ -113,7 +107,8 @@ class TestRun:
                     "grant_type": 'client_credentials'
                 }
             ).text)
-            return self.accessTokenResponse['access_token']
+            self.access_token = self.accessTokenResponse['access_token']
+            return
         except KeyError:
             self.rest_api_assess.append(TestFailure(f'cannot retrieve access token: {self.accessTokenResponse["error"]}'))
             raise
@@ -123,19 +118,27 @@ class TestRun:
 
     def assess(self):
         if self.__valid():
+            public_resource = f'{self.data["api"]}/{self.data["public"]}'
+            protected_resource = f'{self.data["api"]}/{self.data["protected"]}'
             forbidden_methods = [
-                {'verb': 'PUT', 'function': lambda url, key: requests.put(url, headers={'x-api-key': key})},
-                {'verb': 'DELETE', 'function': lambda url, key: requests.delete(url, headers={'x-api-key': key})},
-                {'verb': 'PATCH', 'function': lambda url, key: requests.patch(url, headers={'x-api-key': key})},
-                {'verb': 'POST', 'function': lambda url, key: requests.post(url, headers={'x-api-key': key})}
+                {'verb': 'PUT', 'function': lambda url, headers: requests.put(url, headers=headers)},
+                {'verb': 'DELETE', 'function': lambda url, headers: requests.delete(url, headers=headers)},
+                {'verb': 'PATCH', 'function': lambda url, headers: requests.patch(url, headers=headers)},
+                {'verb': 'POST', 'function': lambda url, headers: requests.post(url, headers=headers)}
             ]
+            # test public resource
             self.rest_api_assess = [
-                self.__testPublic(),
-                self.__testNoApiKey()
-            ] + [self.__testMethodRejected(method) for method in forbidden_methods]
-
+                self.__testPublic(public_resource),
+                self.__testNoApiKey(public_resource)
+            ] + [self.__testMethodRejected(public_resource, method) for method in forbidden_methods]
+            # test protected resource
             try:
-                self.rest_api_assess = self.rest_api_assess + self.__testProtected(self.__getAccessToken())
+                self.__getAccessToken()
+                self.rest_api_assess = self.rest_api_assess + [
+                    self.__testNoApiKey(protected_resource)
+                    ] + self.__testProtected(protected_resource) + [
+                    self.__testMethodRejected(protected_resource, method) for method in forbidden_methods
+                    ]
             except:
                 #print(f'cannot get access token - {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}')
                 #traceback.print_tb(sys.exc_info()[2])
