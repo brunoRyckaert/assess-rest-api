@@ -40,8 +40,9 @@ On subsequent use, the last command should suffice.
 |------------------------------|--------------------|
 |Invocation successful         |200                 |
 |Missing API key               |403 or 404          |
-|Missing or invalid access token|401, 403 or 404    |
+|Missing                       |401, 403 or 404     |
 |Forbidden method              | 403, 404 or 405    |
+|Invalid access token          |401, 403, 404 or 500|
 
 ## Data file
 
@@ -70,7 +71,8 @@ On subsequent use, the last command should suffice.
     "protected": "<protected resource name>",
     "iss": "https://cognito-idp.eu-west-1.amazonaws.com/<Pool Id>",
     "client_id": "<App client id>",
-    "client_secret": "<App client secret>"
+    "client_secret": "<App client secret>",
+    "audience": "<issuer's API id>"
   }
 ]
  ```

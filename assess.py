@@ -66,7 +66,7 @@ class TestRun:
                         'Authorization': f'Bearer {self.access_token[0:-1]}'
                     }
                 )
-        result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'With corrupt access token {self.data["protected"]}'))
+        result.append(self.__testStatusCode(response.status_code, [401, 403, 404, 500], f'With corrupt access token {self.data["protected"]}'))
         return result
 
     def __testNoApiKey(self, resource):
