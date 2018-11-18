@@ -140,23 +140,17 @@ class TestRun:
             raise
 
     def __authenticationRequired(self):
-        return 'protected' in self.data
+        return 'authenticated' in self.data
 
     def assess(self):
         if self.__valid():
             resource = f'{self.data["api"]}/{self.data["resource"]}'
             forbidden_methods = [method for method in self.methods if method['verb'] != 'GET']
-            # test resource
-            self.rest_api_assess = [
-                self.__testResource(resource),
-                self.__testNoApiKey(resource)
-            ] + [self.__testMethodRejected(resource, method) for method in forbidden_methods]
-            # test protected resource
+            self.rest_api_assess = []
             if self.__authenticationRequired():
-                protected_resource = f'{self.data["api"]}/{self.data["protected"]}'
                 try:
                     self.__getAccessToken()
-                    self.rest_api_assess = self.rest_api_assess + [
+                    self.rest_api_assess = [
                         self.__testNoApiKey(protected_resource)
                         ] + self.__testProtected(protected_resource) + [
                         self.__testMethodRejected(protected_resource, method) for method in forbidden_methods
@@ -165,6 +159,11 @@ class TestRun:
                     #print(f'cannot get access token - {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}')
                     #traceback.print_tb(sys.exc_info()[2])
                     pass
+            else:
+                self.rest_api_assess = [
+                    self.__testResource(resource),
+                    self.__testNoApiKey(resource)
+                ] + [self.__testMethodRejected(resource, method) for method in forbidden_methods]
 
             failures = itertools.filterfalse(lambda result: isinstance(result, TestSuccess), self.rest_api_assess)
             success = True
