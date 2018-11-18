@@ -18,11 +18,19 @@ class TestRun:
         'owner',
         'api_key',
         'api',
-        'public',
+        'resource',
         'protected',
         'iss',
         'client_secret',
         'client_id'
+        ]
+
+    methods = [
+            {'verb': 'GET', 'function': lambda url, headers: requests.get(url, headers=headers)},
+            {'verb': 'PUT', 'function': lambda url, headers: requests.put(url, headers=headers)},
+            {'verb': 'DELETE', 'function': lambda url, headers: requests.delete(url, headers=headers)},
+            {'verb': 'PATCH', 'function': lambda url, headers: requests.patch(url, headers=headers)},
+            {'verb': 'POST', 'function': lambda url, headers: requests.post(url, headers=headers)}
         ]
 
     def __init__(self, data):
@@ -122,19 +130,14 @@ class TestRun:
 
     def assess(self):
         if self.__valid():
-            public_resource = f'{self.data["api"]}/{self.data["public"]}'
+            resource = f'{self.data["api"]}/{self.data["resource"]}'
             protected_resource = f'{self.data["api"]}/{self.data["protected"]}'
-            forbidden_methods = [
-                {'verb': 'PUT', 'function': lambda url, headers: requests.put(url, headers=headers)},
-                {'verb': 'DELETE', 'function': lambda url, headers: requests.delete(url, headers=headers)},
-                {'verb': 'PATCH', 'function': lambda url, headers: requests.patch(url, headers=headers)},
-                {'verb': 'POST', 'function': lambda url, headers: requests.post(url, headers=headers)}
-            ]
-            # test public resource
+            forbidden_methods = [method for method in self.methods if method['verb'] != 'GET']
+            # test resource
             self.rest_api_assess = [
-                self.__testResource(public_resource),
-                self.__testNoApiKey(public_resource)
-            ] + [self.__testMethodRejected(public_resource, method) for method in forbidden_methods]
+                self.__testResource(resource),
+                self.__testNoApiKey(resource)
+            ] + [self.__testMethodRejected(resource, method) for method in forbidden_methods]
             # test protected resource
             try:
                 self.__getAccessToken()
