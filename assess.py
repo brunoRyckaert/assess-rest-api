@@ -14,6 +14,17 @@ class TestSuccess(TestResult): pass
 
 class TestRun:
 
+    mandatory_keys = [
+        'owner',
+        'api_key',
+        'api',
+        'resource'
+    ]
+
+    keys_for_authenticated_apis = [
+
+    ]
+
     keys = [
         'owner',
         'api_key',
@@ -40,7 +51,7 @@ class TestRun:
 
     def __valid(self):
         result = True
-        missing_keys = itertools.filterfalse(lambda k: k in self.data, self.keys)
+        missing_keys = itertools.filterfalse(lambda k: k in self.data, self.mandatory_keys)
         for key in missing_keys:
             print(f'{key} is not set in data file.')
             result = False
@@ -128,10 +139,12 @@ class TestRun:
             print(f'unexpected error: {sys.exc_info()[0]}. Please send author your command line and data.json.')
             raise
 
+    def __authenticationRequired(self):
+        return 'protected' in self.data
+
     def assess(self):
         if self.__valid():
             resource = f'{self.data["api"]}/{self.data["resource"]}'
-            protected_resource = f'{self.data["api"]}/{self.data["protected"]}'
             forbidden_methods = [method for method in self.methods if method['verb'] != 'GET']
             # test resource
             self.rest_api_assess = [
@@ -139,17 +152,19 @@ class TestRun:
                 self.__testNoApiKey(resource)
             ] + [self.__testMethodRejected(resource, method) for method in forbidden_methods]
             # test protected resource
-            try:
-                self.__getAccessToken()
-                self.rest_api_assess = self.rest_api_assess + [
-                    self.__testNoApiKey(protected_resource)
-                    ] + self.__testProtected(protected_resource) + [
-                    self.__testMethodRejected(protected_resource, method) for method in forbidden_methods
-                    ]
-            except:
-                #print(f'cannot get access token - {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}')
-                #traceback.print_tb(sys.exc_info()[2])
-                pass
+            if self.__authenticationRequired():
+                protected_resource = f'{self.data["api"]}/{self.data["protected"]}'
+                try:
+                    self.__getAccessToken()
+                    self.rest_api_assess = self.rest_api_assess + [
+                        self.__testNoApiKey(protected_resource)
+                        ] + self.__testProtected(protected_resource) + [
+                        self.__testMethodRejected(protected_resource, method) for method in forbidden_methods
+                        ]
+                except:
+                    #print(f'cannot get access token - {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}')
+                    #traceback.print_tb(sys.exc_info()[2])
+                    pass
 
             failures = itertools.filterfalse(lambda result: isinstance(result, TestSuccess), self.rest_api_assess)
             success = True
