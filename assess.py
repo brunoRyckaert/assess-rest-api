@@ -78,14 +78,14 @@ class TestRun:
                 'x-api-key': self.data['api_key']
             }
         )
-        result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'Without Authorization header {self.data["protected"]}'))
+        result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'Without Authorization header {resource}'))
         # tamper with integrity access token
         response = requests.get(resource, headers={
                         'x-api-key': self.data['api_key'],
                         'Authorization': f'Bearer {self.access_token[0:-1]}'
                     }
                 )
-        result.append(self.__testStatusCode(response.status_code, [401, 403, 404, 500], f'With corrupt access token {self.data["protected"]}'))
+        result.append(self.__testStatusCode(response.status_code, [401, 403, 404, 500], f'With corrupt access token {resource}'))
         return result
 
     def __testNoApiKey(self, resource):
@@ -115,7 +115,7 @@ class TestRun:
         if 'audience' in self.data:
             params['audience'] = self.data['audience']
         else:
-            params['audience'] = f'{self.data["api"]}/{self.data["protected"]}'
+            params['audience'] = f'{self.data["api"]}/{self.data["resource"]}'
         try:
             self.openidConfiguration = self.__metadata(self.data['iss'])
             self.token_endpoint = self.openidConfiguration["token_endpoint"]
@@ -145,19 +145,22 @@ class TestRun:
     def assess(self):
         if self.__valid():
             resource = f'{self.data["api"]}/{self.data["resource"]}'
-            forbidden_methods = itertools.filterfalse(lambda method: method['verb'] in self.data['public'], self.methods)
+            public_methods = [] if 'public' not in self.data else self.data['public']
+            authenticated_methods = [] if 'authenticated' not in self.data else [method['verb'] for method in self.data['authenticated']]
+            exposed_methods = public_methods + authenticated_methods
+            forbidden_methods = itertools.filterfalse(lambda method: method['verb'] in exposed_methods, self.methods)
             self.rest_api_assess = []
             if self.__authenticationRequired():
                 try:
                     self.__getAccessToken()
                     self.rest_api_assess = [
-                        self.__testNoApiKey(protected_resource)
-                        ] + self.__testProtected(protected_resource) + [
-                        self.__testMethodRejected(protected_resource, method) for method in forbidden_methods
+                        self.__testNoApiKey(resource)
+                        ] + self.__testProtected(resource) + [
+                        self.__testMethodRejected(resource, method) for method in forbidden_methods
                         ]
                 except:
-                    #print(f'cannot get access token - {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}')
-                    #traceback.print_tb(sys.exc_info()[2])
+                    print(f'cannot get access token - {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}')
+                    traceback.print_tb(sys.exc_info()[2])
                     pass
             else:
                 self.rest_api_assess = [
@@ -170,6 +173,7 @@ class TestRun:
             for result in failures:
                 print(f'fail: {result.message}')
                 success = False
+            print(f'{len(self.rest_api_assess)} tests')
             print("pass" if success else "fail")
         else:
             print("fail")
