@@ -22,19 +22,14 @@ class TestRun:
     ]
 
     keys_for_authenticated_apis = [
-
-    ]
-
-    keys = [
-        'owner',
-        'api_key',
-        'api',
-        'resource',
-        'protected',
         'iss',
         'client_secret',
         'client_id'
-        ]
+    ]
+
+    keys_for_scoped_apis = [
+        'audience'
+    ]
 
     methods = [
             {'verb': 'GET', 'function': lambda url, headers: requests.get(url, headers=headers)},
@@ -52,9 +47,14 @@ class TestRun:
     def __valid(self):
         result = True
         missing_keys = itertools.filterfalse(lambda k: k in self.data, self.mandatory_keys)
+        if self.__authenticationRequired():
+            missing_keys = itertools.chain(missing_keys,
+                itertools.filterfalse(lambda k: k in self.data, self.keys_for_authenticated_apis))
         for key in missing_keys:
             print(f'{key} is not set in data file.')
             result = False
+        if not (self.__authenticationRequired() or 'public' in self.data):
+            print('an API must have public methods or authenticated methods, or both - neither key is present in data file.')
         return result
 
     def __testStatusCode(self, actual, acceptable, testDesc):
@@ -145,7 +145,7 @@ class TestRun:
     def assess(self):
         if self.__valid():
             resource = f'{self.data["api"]}/{self.data["resource"]}'
-            forbidden_methods = [method for method in self.methods if method['verb'] != 'GET']
+            forbidden_methods = itertools.filterfalse(lambda method: method['verb'] in self.data['public'], self.methods)
             self.rest_api_assess = []
             if self.__authenticationRequired():
                 try:
