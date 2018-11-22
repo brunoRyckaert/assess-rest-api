@@ -31,18 +31,20 @@ class TestRun:
         'audience'
     ]
 
-    methods = [
-            {'verb': 'GET', 'function': lambda url, headers: requests.get(url, headers=headers)},
-            {'verb': 'PUT', 'function': lambda url, headers: requests.put(url, headers=headers)},
-            {'verb': 'DELETE', 'function': lambda url, headers: requests.delete(url, headers=headers)},
-            {'verb': 'PATCH', 'function': lambda url, headers: requests.patch(url, headers=headers)},
-            {'verb': 'POST', 'function': lambda url, headers: requests.post(url, headers=headers)}
-        ]
+    methods = {'GET': lambda url, headers: requests.get(url, headers=headers),
+               'PUT': lambda url, headers: requests.put(url, headers=headers),
+               'DELETE': lambda url, headers: requests.delete(url, headers=headers),
+               'PATCH': lambda url, headers: requests.patch(url, headers=headers),
+               'POST': lambda url, headers: requests.post(url, headers=headers),
+               'HEAD': lambda url, headers: requests.head(url, headers=headers)}
+
+    http_verbs = list(methods.keys())
 
     def __init__(self, data):
         print(f'Processing {data["owner"]}\'s API')
         self.data = data
-        self.access_token = ''
+        self.rest_api_assess = []
+        self.token_endpoint = None
 
     def __valid(self):
         result = True
@@ -53,8 +55,38 @@ class TestRun:
         for key in missing_keys:
             print(f'{key} is not set in data file.')
             result = False
-        if not (self.__authenticationRequired() or 'public' in self.data):
-            print('an API must have public methods or authenticated methods, or both - neither key is present in data file.')
+        if not ('authenticated' in self.data or 'public' in self.data):
+            print('an API must have public or authenticated methods, or both - neither key is present in data file.')
+            result = False
+        else:
+            result = result and self.__checkMethods()
+        return result
+
+    def __checkMethods(self):
+        result = True
+        if 'public' in self.data:
+            public = self.data['public']
+            if not isinstance(public, list) or len(public) == 0:
+                print('public field should be a non-empty list of HTTP verbs')
+                result = False
+            for verb in public:
+                if verb not in self.http_verbs:
+                    print(f'public field: {verb} is not a supported HTTP verb.')
+                    result = False
+        if 'authenticated' in self.data:
+            authenticated = self.data['authenticated']
+            if not isinstance(authenticated, dict) or len(authenticated) == 0:
+                print('authenticated field should be a map of HTTP verbs to scopes, e.g. {"GET": "", "PUT": "rides/update"}')
+                result = False
+            else:
+                for verb in authenticated.keys():
+                    if not verb in self.http_verbs:
+                        print(f'authenticated field: {verb} is not recognized as an HTTP verb. Only use one of {self.http_verbs}')
+                        result = False
+                    else:
+                        if not isinstance(authenticated[verb], str):
+                            print(f'authenticated field: value of {verb} must be a string expressing a scope')
+                            result = False
         return result
 
     def __testStatusCode(self, actual, acceptable, testDesc):
@@ -64,48 +96,64 @@ class TestRun:
             return TestFailure(f'{testDesc} returns status code {actual}. Expected is {acceptable}.')
         return TestSuccess(f'{testDesc} returns status code {actual}.')
 
-    def __testResource(self, resource):
-        headers = {'x-api-key': self.data['api_key']}
-        if len(self.access_token) > 0:
-            headers['Authorization'] = f'Bearer {self.access_token}'
-        response = requests.get(resource, headers=headers)
-        return self.__testStatusCode(response.status_code, 200, f'{resource.split("/")[-1]}')
+    def __sendRequest(self, method, resource, headers):
+        call = self.methods[method]
+        return call(resource, headers)
 
-    def __testProtected(self, resource):
-        result = []
-        result.append(self.__testResource(resource))
-        response = requests.get(resource, headers={
-                'x-api-key': self.data['api_key']
-            }
+    def __testResource(self, method, resource, token='', scope=''):
+        headers = {
+            'x-api-key': self.data['api_key'],
+            'Authorization': f'Bearer {token}'
+        }
+        response = self.__sendRequest(method, resource, headers)
+        return self.__testStatusCode(
+            response.status_code,
+            200,
+            (f'With scope {scope}, ' if scope != '' else '') + f'{method} {self.data["resource"]}'
         )
-        result.append(self.__testStatusCode(response.status_code, [401, 403, 404], f'Without Authorization header {resource}'))
-        # tamper with integrity access token
-        response = requests.get(resource, headers={
-                        'x-api-key': self.data['api_key'],
-                        'Authorization': f'Bearer {self.access_token[0:-1]}'
-                    }
-                )
-        result.append(self.__testStatusCode(response.status_code, [401, 403, 404, 500], f'With corrupt access token {resource}'))
-        return result
 
-    def __testNoApiKey(self, resource):
-        headers = {}
-        if len(self.access_token) > 0:
-            headers['Authorization'] = f'Bearer {self.access_token}'
-        response = requests.get(resource, headers=headers)
-        return self.__testStatusCode(response.status_code, [403, 404], f'Without API key {resource.split("/")[-1]}')
+    def __testNoApiKey(self, method, resource, token=''):
+        headers = {
+            'Authorization': f'Bearer {token}'
+        }
+        response = self.__sendRequest(method, resource, headers)
+        return self.__testStatusCode(response.status_code, [403, 404], f'Without API key {method} {self.data["resource"]}')
 
-    def __testMethodRejected(self, resource, method):
+    def __testNoToken(self, method, resource):
         headers = {'x-api-key': self.data['api_key']}
-        if len(self.access_token) > 0:
-            headers['Authorization'] = f'Bearer self.access_token'
-        response = method['function'](resource, headers)
-        return self.__testStatusCode(response.status_code, [403, 404, 405], f'Using unsupported method, {method["verb"]}')
+        response = self.__sendRequest(method, resource, headers)
+        return self.__testStatusCode(response.status_code, [401, 403, 404], f'Without Authorization header {method} {self.data["resource"]}')
+
+    def __testCorruptToken(self, method, resource, token):
+        headers = {
+            'x-api-key': self.data['api_key'],
+            'Authorization': f'Bearer {token[0:-1]}'
+        }
+        response = self.__sendRequest(method, resource, headers)
+        return self.__testStatusCode(response.status_code, [401, 403, 404, 500], f'With corrupt access token {method} {self.data["resource"]}')
+
+    def __testWrongScope(self, method, resource, accessToken, scope):
+        headers = {
+            'x-api-key': self.data['api_key'],
+            'Authorization': f'Bearer {accessToken}'
+        }
+        response = self.__sendRequest(method, resource, headers)
+        return self.__testStatusCode(response.status_code, [401, 403, 404], f'With scope {scope}, {method} {self.data["resource"]}')
+
+    def __testMethodRejected(self, resource, method, token=''):
+        headers = {
+            'x-api-key': self.data['api_key'],
+            'Authorization': f'Bearer {token}'
+        }
+        if self.__authenticationRequired():
+            headers['Authorization'] = f'Bearer  {self.__getAccessToken()}'
+        response = self.methods[method](resource, headers)
+        return self.__testStatusCode(response.status_code, [403, 404, 405], f'Using unsupported method - {method}')
 
     def __metadata(self, url):
         return json.loads(requests.get(f'{url}/.well-known/openid-configuration').text)
 
-    def __getAccessToken(self):
+    def __getAccessToken(self, scope=''):
         params = {
             "client_id": self.data["client_id"],
             "client_secret": self.data["client_secret"],
@@ -116,60 +164,70 @@ class TestRun:
             params['audience'] = self.data['audience']
         else:
             params['audience'] = f'{self.data["api"]}/{self.data["resource"]}'
+        params['scope'] = scope
+        if self.token_endpoint is None:
+            try:
+                openidConfiguration = self.__metadata(self.data['iss'])
+                self.token_endpoint = openidConfiguration["token_endpoint"]
+            except requests.exceptions.ConnectionError:
+                self.rest_api_assess.append(TestFailure(f'cannot connect to issuer at {self.data["iss"]}'))
+                raise
+            except KeyError:
+                self.rest_api_assess.append(TestFailure(f'no metadata found at issuer ({self.data["iss"]})'))
+                raise
         try:
-            self.openidConfiguration = self.__metadata(self.data['iss'])
-            self.token_endpoint = self.openidConfiguration["token_endpoint"]
-        except requests.exceptions.ConnectionError:
-            self.rest_api_assess.append(TestFailure(f'cannot connect to issuer at {self.data["iss"]}'))
-            raise
-        except KeyError:
-            self.rest_api_assess.append(TestFailure(f'no metadata found at issuer ({self.data["iss"]})'))
-            raise
-        try:
-            self.accessTokenResponse = json.loads(requests.post(
+            accessTokenResponse = json.loads(requests.post(
                 self.token_endpoint,
                 params
             ).text)
-            self.access_token = self.accessTokenResponse['access_token']
-            return
+            return accessTokenResponse['access_token']
         except KeyError:
-            self.rest_api_assess.append(TestFailure(f'cannot retrieve access token: {self.accessTokenResponse["error"]}'))
+            self.rest_api_assess.append(TestFailure(f'cannot retrieve access token with scope {scope}: {accessTokenResponse["error"]}'))
             raise
         except:
             print(f'unexpected error: {sys.exc_info()[0]}. Please send author your command line and data.json.')
             raise
 
     def __authenticationRequired(self):
-        return 'authenticated' in self.data
+        return ('authenticated' in self.data)
 
     def assess(self):
         if self.__valid():
             resource = f'{self.data["api"]}/{self.data["resource"]}'
             public_methods = [] if 'public' not in self.data else self.data['public']
-            authenticated_methods = [] if 'authenticated' not in self.data else [method['verb'] for method in self.data['authenticated']]
+            authenticated_methods = [] if 'authenticated' not in self.data else [method for method in self.data['authenticated']]
             exposed_methods = public_methods + authenticated_methods
-            forbidden_methods = itertools.filterfalse(lambda method: method['verb'] in exposed_methods, self.methods)
-            self.rest_api_assess = []
+            forbidden_methods = [verb for verb in self.http_verbs if verb not in exposed_methods]
+            for method in public_methods:
+                self.rest_api_assess.append(self.__testResource(method, resource))
+                self.rest_api_assess.append(self.__testNoApiKey(method, resource))
             if self.__authenticationRequired():
+                scopes = {scope for scope in self.data['authenticated'].values() if scope != ''}
+                accessTokens = {}
                 try:
-                    self.__getAccessToken()
-                    self.rest_api_assess = [
-                        self.__testNoApiKey(resource)
-                        ] + self.__testProtected(resource) + [
-                        self.__testMethodRejected(resource, method) for method in forbidden_methods
-                        ]
+                    accessTokens = {scope: self.__getAccessToken(scope) for scope in scopes}
+                    accessTokens[''] = self.__getAccessToken()
+                    for method, scope in self.data['authenticated'].items():
+                        self.rest_api_assess.append(self.__testResource(method, resource, token=accessTokens[scope], scope=scope))
+                        self.rest_api_assess.append(self.__testNoApiKey(method, resource, token=accessTokens[scope]))
+                        self.rest_api_assess.append(self.__testNoToken(method, resource))
+                        self.rest_api_assess.append(self.__testCorruptToken(method, resource, accessTokens[scope]))
+                        for scp in scopes:
+                            if scope != '':
+                                if scp != scope:
+                                    self.rest_api_assess.append(self.__testWrongScope(method, resource, accessTokens[scp], scp))
+                            else:
+                                self.rest_api_assess.append(self.__testResource(method, resource, token=accessTokens[scp], scope=scp))
                 except:
-                    print(f'cannot get access token - {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}')
-                    traceback.print_tb(sys.exc_info()[2])
-                    pass
-            else:
-                self.rest_api_assess = [
-                    self.__testResource(resource),
-                    self.__testNoApiKey(resource)
-                ] + [self.__testMethodRejected(resource, method) for method in forbidden_methods]
+                    print(f'unexpected error. Please send author your command line, traceback and data.json.')
+                    raise
+            self.rest_api_assess += [self.__testMethodRejected(resource, method) for method in forbidden_methods]
 
             failures = itertools.filterfalse(lambda result: isinstance(result, TestSuccess), self.rest_api_assess)
+            successes = [success for success in self.rest_api_assess if isinstance(success, TestSuccess)]
             success = True
+            for result in successes:
+                print(f'pass: {result.message}')
             for result in failures:
                 print(f'fail: {result.message}')
                 success = False

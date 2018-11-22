@@ -41,7 +41,7 @@ On subsequent use, the last command should suffice.
 |Invocation successful         |200                 |
 |Missing API key               |403 or 404          |
 |Missing                       |401, 403 or 404     |
-|Forbidden method              | 403, 404 or 405    |
+|Forbidden method              |403, 404 or 405     |
 |Invalid access token          |401, 403, 404 or 500|
 
 ## Data file
@@ -53,11 +53,12 @@ On subsequent use, the last command should suffice.
 |`owner`           |EhB email address of the student whose API is being assessed|mandatory|
 |`api`             |The base URL of the API. If you are using AWS API Gateway, this would be the URL of the stage.|mandatory|
 |`api_key`         |The API key. This test suite puts the API key in the `x-api-key` header. Let me know if you have a good reason to present the API key differently.|mandatory|
-|`public`          |The public endpoint. In the full URL, this value trails the value of the `api` field.|mandatory|
-|`protected`       |The endpoint that requires authentication. In the full URL, this value also trails the value of the `api` field.|mandatory|
-|`iss`             |The issuer URL. This is the same URL as in tokens issued by the issuer. It is not necessarily a prefix of the authorization server's token or authorization endpoint.|mandatory|
-|`client_id`       |The ID for the test client registered with the authorization server.|mandatory|
-|`client_secret`   |The secret issued for the test client by the authorization server.|mandatory|
+|`resource`        |The endpoint to be tested.|mandatory|
+|`public`          |An array of methods which afford anonymous access to the resource.|this field or the `authenticated` field must be present, or both|
+|`authenticated`       |A JSON object. The keys are the methods that require authentication. The value is the corresponding scope string needed for authorization.|this field or the `public` field must be present, or both|
+|`iss`             |The issuer URL. This is the same URL as in tokens issued by the issuer. It is not necessarily a prefix of the authorization server's token or authorization endpoint.|mandatory if `authenticated` is present|
+|`client_id`       |The ID for the test client registered with the authorization server.|mandatory if `authenticated` is present|
+|`client_secret`   |The secret issued for the test client by the authorization server.|mandatory if `authenticated` is present|
 |`audience`        |The identifier of the API which will be invoked with the token. Not needed for Cognito, required by Auth0. If this field is absent, the token request is sent with an `audience` parameter consisting of the full endpoint URL.|optional|
 
 ### Example
@@ -67,12 +68,25 @@ On subsequent use, the last command should suffice.
     "owner": "johan.peeters@ehb.be",
     "api": "https://<AWS API identifier>.execute-api.eu-west-1.amazonaws.com/<stage>",
     "api_key": "<secret key>",
-    "public": "<public resource name>",
-    "protected": "<protected resource name>",
+    "resource": "rides",
+    "public": ["GET"],
+    "authenticated": {"POST": "rides/create"},
     "iss": "https://cognito-idp.eu-west-1.amazonaws.com/<Pool Id>",
     "client_id": "<App client id>",
     "client_secret": "<App client secret>",
-    "audience": "<issuer's API id>"
+    "audience": "rides"
+  },
+  {
+    "owner": "johan.peeters@ehb.be",
+    "api": "https://<AWS API identifier>.execute-api.eu-west-1.amazonaws.com/<stage>",
+    "api_key": "<secret key>",
+    "public": ["GET"],
+    "authenticated": {"PUT": "rides/update", "DELETE": "rides/delete"},
+    "resource": "rides/alice",
+    "iss": "https://cognito-idp.eu-west-1.amazonaws.com/<Pool Id>",
+    "client_id": "<App client id>",
+    "client_secret": "<App client secret>",
+    "audience": "rides"
   }
 ]
  ```
