@@ -32,9 +32,11 @@ On subsequent use, the last command should suffice.
 ## Assessment criteria
 
 * The API is 'protected' with an API key
-* The API has a public endpoint that does not require further authentication
-* A protected endpoint requires authentication with a valid access token
-* Only GET, HEAD and OPTIONS requests are allowed
+* Public methods do not require authentication
+* Authenticated methods require a valid access token
+* Methods (HTTP verbs) that are not listed as public or authenticated are denied access
+* The access token must contain at the scope specified with an authenticated method to gain access
+* No other scopes affords access
 
 |Condition                     |Expected status code|
 |------------------------------|--------------------|
