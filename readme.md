@@ -34,7 +34,7 @@ On subsequent use, the last command should suffice.
 * The API is 'protected' with an API key
 * Public methods do not require authentication
 * Authenticated methods require a valid access token
-* Methods (HTTP verbs) that are not listed as public or authenticated are denied access
+* Methods not listed as public or authenticated are denied access. The script tests for following methods: HEAD, GET, POST, PUT, PATCH and DELETE. OPTIONS is not being tested and will be discussed in the OAuth and OIDC module in connection with CORS preflight requests
 * The access token must contain at the scope specified with an authenticated method to gain access
 * No other scopes affords access
 
