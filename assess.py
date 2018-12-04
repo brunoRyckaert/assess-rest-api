@@ -182,7 +182,7 @@ class TestRun:
             ).text)
             return accessTokenResponse['access_token']
         except KeyError:
-            self.rest_api_assess.append(TestFailure(f'cannot retrieve access token with scope {scope}: {accessTokenResponse["error"]}'))
+            self.rest_api_assess.append(TestFailure(f'cannot retrieve access token with scope {scope}'))
             raise
         except:
             print(f'unexpected error: {sys.exc_info()[0]}. Please send author your command line and data.json.')
@@ -219,8 +219,7 @@ class TestRun:
                             else:
                                 self.rest_api_assess.append(self.__testResource(method, resource, token=accessTokens[scp], scope=scp))
                 except:
-                    print(f'unexpected error. Please send author your command line, traceback and data.json.')
-                    raise
+                    pass
             self.rest_api_assess += [self.__testMethodRejected(resource, method) for method in forbidden_methods]
 
             failures = itertools.filterfalse(lambda result: isinstance(result, TestSuccess), self.rest_api_assess)

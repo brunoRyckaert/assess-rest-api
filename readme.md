@@ -17,6 +17,8 @@ In either case, you need a file called `data.json` in a well-known location. If 
 docker run --rm --name ara -v <absolute path to data.json's parent dir>:/var/test_input yopeeters/assess-rest-api
 ```
 
+Make sure to use the latest version of the Docker image - see [Dockerhub](https://hub.docker.com/r/yopeeters/assess-rest-api/tags/).
+
 ### Python (not recommended and not tested)
 
 ```
@@ -68,24 +70,24 @@ On subsequent use, the last command should suffice.
 [
   {
     "owner": "johan.peeters@ehb.be",
-    "api": "https://<AWS API identifier>.execute-api.eu-west-1.amazonaws.com/<stage>",
+    "api": "https://<AWS API identifier>.execute-api.<AWS region>.amazonaws.com/<stage>",
     "api_key": "<secret key>",
     "resource": "rides",
     "public": ["GET"],
     "authenticated": {"POST": "rides/create"},
-    "iss": "https://cognito-idp.eu-west-1.amazonaws.com/<Pool Id>",
+    "iss": "https://cognito-idp.<AWS region>.amazonaws.com/<Pool Id>",
     "client_id": "<App client id>",
     "client_secret": "<App client secret>",
     "audience": "rides"
   },
   {
     "owner": "johan.peeters@ehb.be",
-    "api": "https://<AWS API identifier>.execute-api.eu-west-1.amazonaws.com/<stage>",
+    "api": "https://<AWS API identifier>.execute-api.<AWS region>.amazonaws.com/<stage>",
     "api_key": "<secret key>",
     "public": ["GET"],
     "authenticated": {"PUT": "rides/update", "DELETE": "rides/delete"},
     "resource": "rides/alice",
-    "iss": "https://cognito-idp.eu-west-1.amazonaws.com/<Pool Id>",
+    "iss": "https://cognito-idp.<AWS region>.amazonaws.com/<Pool Id>",
     "client_id": "<App client id>",
     "client_secret": "<App client secret>",
     "audience": "rides"
