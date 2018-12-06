@@ -108,7 +108,7 @@ class TestRun:
         response = self.__sendRequest(method, resource, headers)
         return self.__testStatusCode(
             response.status_code,
-            200,
+            [200, 201],
             (f'With scope {scope}, ' if scope != '' else '') + f'{method} {self.data["resource"]}'
         )
 
@@ -151,7 +151,10 @@ class TestRun:
         return self.__testStatusCode(response.status_code, [403, 404, 405], f'Using unsupported method - {method}')
 
     def __metadata(self, url):
-        return json.loads(requests.get(f'{url}/.well-known/openid-configuration').text)
+        try:
+            return json.loads(requests.get(f'{url}/.well-known/openid-configuration').text)
+        except:
+            raise
 
     def __getAccessToken(self, scope=''):
         params = {
@@ -172,7 +175,7 @@ class TestRun:
             except requests.exceptions.ConnectionError:
                 self.rest_api_assess.append(TestFailure(f'cannot connect to issuer at {self.data["iss"]}'))
                 raise
-            except KeyError:
+            except:
                 self.rest_api_assess.append(TestFailure(f'no metadata found at issuer ({self.data["iss"]})'))
                 raise
         try:

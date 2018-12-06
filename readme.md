@@ -42,7 +42,7 @@ On subsequent use, the last command should suffice.
 
 |Condition                     |Expected status code|
 |------------------------------|--------------------|
-|Invocation successful         |200                 |
+|Invocation successful         |200 or 201          |
 |Missing API key               |403 or 404          |
 |Missing                       |401, 403 or 404     |
 |Forbidden method              |403, 404 or 405     |
@@ -94,3 +94,12 @@ On subsequent use, the last command should suffice.
   }
 ]
  ```
+
+## Caveats
+
+Testing APIs is subtle and a generic tool to automate tests for an arbitrary API is hard to write. The current tool has some very serious limitations that would make it almost certainly unsuitable for a realistic API. Here are some of them:
+
+* Both status code 200 *and* 201 are accepted to signal a successful invocation. 201 should be returned from a create operation. All other successful operations should return 200.
+* No parameters or data are sent with requests. The test client assumes that this does not affect the status code of the response. A real API will often return status code 400 when the expected parameters or data are not received.
+* A real API should delete a resource if it is called with the DELETE HTTP method. From a testing perspective this is awkward since real deletion is not idempotent. The current client sort of assumes it is: it will call `DELETE` on the resource configured in `data.json`, resulting in test failure in all subsequent runs unless `data.json` is updated in the meantime.
+* If you configure the wrong URLs for the APIs or issuer, you get some pretty opaque Python stack traces.
