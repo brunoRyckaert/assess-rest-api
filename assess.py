@@ -183,7 +183,7 @@ class TestRun:
             return accessTokenResponse['access_token']
         except KeyError:
             self.rest_api_assess.append(TestFailure(f'cannot retrieve access token with scope {scope}'))
-            raise
+            pass
         except:
             print(f'unexpected error: {sys.exc_info()[0]}. Please send author your command line and data.json.')
             raise
