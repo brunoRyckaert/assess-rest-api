@@ -97,27 +97,37 @@ class TestRun:
         return TestSuccess(f'{testDesc} returns status code {actual}.')
 
     def __sendRequest(self, method, resource, headers):
-        call = self.methods[method]
-        return call(resource, headers)
+        try:
+            call = self.methods[method]
+            return call(resource, headers)
+        except:
+            self.rest_api_assess.append(TestFailure(f'cannot {method} on {resource}'))
+            raise
 
     def __testResource(self, method, resource, token='', scope=''):
         headers = {
             'x-api-key': self.data['api_key'],
             'Authorization': f'Bearer {token}'
         }
-        response = self.__sendRequest(method, resource, headers)
-        return self.__testStatusCode(
-            response.status_code,
-            [200, 201],
-            (f'With scope {scope}, ' if scope != '' else '') + f'{method} {self.data["resource"]}'
-        )
+        try:
+            response = self.__sendRequest(method, resource, headers)
+            return self.__testStatusCode(
+                response.status_code,
+                [200, 201],
+                (f'With scope {scope}, ' if scope != '' else '') + f'{method} {self.data["resource"]}'
+            )
+        except Exception as e:
+            return TestFailure(e)
 
     def __testNoApiKey(self, method, resource, token=''):
         headers = {
             'Authorization': f'Bearer {token}'
         }
-        response = self.__sendRequest(method, resource, headers)
-        return self.__testStatusCode(response.status_code, [403, 404], f'Without API key {method} {self.data["resource"]}')
+        try:
+            response = self.__sendRequest(method, resource, headers)
+            return self.__testStatusCode(response.status_code, [403, 404], f'Without API key {method} {self.data["resource"]}')
+        except Exception as e:
+            return TestFailure(e)
 
     def __testNoToken(self, method, resource):
         headers = {'x-api-key': self.data['api_key']}
@@ -145,14 +155,21 @@ class TestRun:
             'x-api-key': self.data['api_key'],
             'Authorization': f'Bearer {token}'
         }
-        if self.__authenticationRequired():
-            headers['Authorization'] = f'Bearer  {self.__getAccessToken()}'
-        response = self.methods[method](resource, headers)
-        return self.__testStatusCode(response.status_code, [403, 404, 405], f'Using unsupported method - {method}')
+        try:
+            if self.__authenticationRequired():
+                headers['Authorization'] = f'Bearer  {self.__getAccessToken()}'
+            response = self.methods[method](resource, headers)
+            return self.__testStatusCode(response.status_code, [403, 404, 405], f'Using unsupported method - {method}')
+        except Exception as e:
+            return TestFailure(e)
 
     def __metadata(self, url):
         try:
-            return json.loads(requests.get(f'{url}/.well-known/openid-configuration').text)
+            response = requests.get(f'{url}/.well-known/openid-configuration')
+            if response.status_code == requests.codes.ok:
+                return json.loads(response.text)
+            else:
+                raise Exception(f'no metadata found at issuer ({self.data["iss"]})')
         except:
             raise
 
